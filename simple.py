@@ -12,6 +12,11 @@ client=OpenAI(
     api_key=os.getenv("API_KEY")
 )
 messages=[]
+
+MAX_STEPS=5
+
+
+
 messages.append({
     "role":"system",
     "content":"act like a humble agent and response in under  50 words"
@@ -24,34 +29,45 @@ while True:
         "role":"user",
         "content":user_input
     })
-    response=client.chat.completions.create(
-    model=os.getenv("MODEL"),
-    messages=messages,
-    tools=TOOLS,
- )
- 
-    msg=response.choices[0].message
-    if msg.tool_calls:
+    
+    for steps in range(MAX_STEPS):
+        response=client.chat.completions.create(
+            model=os.getenv("MODEL"),
+            messages=messages,
+            tools=TOOLS,
+         )
+         
+        msg=response.choices[0].message
+        if not msg.tool_calls:
+            break
         messages.append(msg)
         for tool_call in msg.tool_calls:
             func_name=tool_call.function.name
-            func_args=json.loads(tool_call.function.arguments or "{}")
+            func_args={}
 
-            fn=FUNCTION_NAME_TO_FUNCTION_MAP[func_name]
-            result=fn(**func_args)
-
+            try:
+                func_args=json.loads(tool_call.function.arguments or "{}")
+                
+                fn=FUNCTION_NAME_TO_FUNCTION_MAP[func_name]
+                result=fn(**func_args)
+            except Exception as e:
+                result=f"error while running {func_name}:{e}"
             messages.append({
                 "role":"tool",
                 "tool_id":tool_call.id,
                 "content":str(result),
             })
 
-        response=client.chat.completions.create(
-            model=os.getenv("MODEL"),
-            messages=messages,
-        )
-        msg=response.choices[0].message
+    else:
+        fallback="sorry could not finish step limit reached"
+        messages.append({
+            "role":"assistant",
+            "content":fallback
 
+        })
+        print("ASSISTANT:" + fallback)
+        continue
+        
     messages.append({
         "role":"assistant",
         "content":msg.content
