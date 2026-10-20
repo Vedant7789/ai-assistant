@@ -8,6 +8,7 @@ def get_current_time():
 def get_city_weather(city):
     url=f"https://wttr.in/{city}?format=3"
     response=requests.get(url,timeout=10)
+    response.raise_for_status()
     return response.text
 
 
@@ -37,7 +38,8 @@ TOOLS=[
                         "description":"city to get the weather for",
                     }
 
-                }
+                },
+                "required":["city"]
             }
         }
     }

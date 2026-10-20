@@ -4,7 +4,7 @@ from openai import OpenAI
 from dotenv import load_dotenv
 import os 
 from tools import TOOLS,FUNCTION_NAME_TO_FUNCTION_MAP
-
+from utilities.utilities import log 
 load_dotenv()
 
 client=OpenAI(
@@ -30,7 +30,7 @@ while True:
         "content":user_input
     })
     
-    for steps in range(MAX_STEPS):
+    for step in range(MAX_STEPS):
         response=client.chat.completions.create(
             model=os.getenv("MODEL"),
             messages=messages,
@@ -40,6 +40,10 @@ while True:
         msg=response.choices[0].message
         if not msg.tool_calls:
             break
+
+        log(f"step {step+1}:model requested {len(msg.tool_calls)} tool calls")
+
+
         messages.append(msg)
         for tool_call in msg.tool_calls:
             func_name=tool_call.function.name
@@ -47,14 +51,15 @@ while True:
 
             try:
                 func_args=json.loads(tool_call.function.arguments or "{}")
-                
+                log(f"{func_name}({func_args})")
                 fn=FUNCTION_NAME_TO_FUNCTION_MAP[func_name]
                 result=fn(**func_args)
             except Exception as e:
                 result=f"error while running {func_name}:{e}"
+            log(f"{result}")
             messages.append({
                 "role":"tool",
-                "tool_id":tool_call.id,
+                "tool_call_id":tool_call.id,
                 "content":str(result),
             })
 
@@ -73,6 +78,6 @@ while True:
         "content":msg.content
     })
 
-    print("ASSISTANT:" + msg.content)
+    print("ASSISTANT:" + (msg.content or ""))
 
     
